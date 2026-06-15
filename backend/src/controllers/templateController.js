@@ -1,5 +1,16 @@
 const pool = require('../db/index');
 
+const safeJsonParse = (value) => {
+  if (typeof value === 'object' && value !== null) {
+    return value;
+  }
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    return value;
+  }
+};
+
 const getTemplateList = async (req, res) => {
   try {
     const { type } = req.query;
@@ -45,7 +56,7 @@ const getTemplateDetail = async (req, res) => {
     }
     
     const template = rows[0];
-    template.fields = JSON.parse(template.fields);
+    template.fields = safeJsonParse(template.fields);
     
     res.json({
       code: 200,

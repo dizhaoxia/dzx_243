@@ -2,6 +2,17 @@ const PdfPrinter = require('pdfmake');
 const pool = require('../db/index');
 const { generateDocumentContent } = require('./documentController');
 
+const safeJsonParse = (value) => {
+  if (typeof value === 'object' && value !== null) {
+    return value;
+  }
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    return value;
+  }
+};
+
 const fonts = {
   Roboto: {
     normal: 'Helvetica',
@@ -86,7 +97,7 @@ const generatePdf = async (req, res) => {
       }
       
       const doc = docRows[0];
-      const contentObj = JSON.parse(doc.content);
+      const contentObj = safeJsonParse(doc.content);
       content = contentObj.text;
       title = doc.title;
     } else if (templateId && formData) {
@@ -208,7 +219,7 @@ const downloadPdf = async (req, res) => {
     }
     
     const doc = docRows[0];
-    const contentObj = JSON.parse(doc.content);
+    const contentObj = safeJsonParse(doc.content);
     const content = contentObj.text;
     const title = doc.title;
     

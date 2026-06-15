@@ -1,6 +1,17 @@
 const pool = require('../db/index');
 const { v4: uuidv4 } = require('uuid');
 
+const safeJsonParse = (value) => {
+  if (typeof value === 'object' && value !== null) {
+    return value;
+  }
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    return value;
+  }
+};
+
 const generateDocumentContent = (templateContent, formData) => {
   let content = templateContent;
   Object.keys(formData).forEach(key => {
@@ -84,9 +95,9 @@ const getDocumentDetail = async (req, res) => {
     }
     
     const doc = rows[0];
-    doc.form_data = JSON.parse(doc.form_data);
-    doc.content = JSON.parse(doc.content);
-    doc.template_fields = JSON.parse(doc.template_fields);
+    doc.form_data = safeJsonParse(doc.form_data);
+    doc.content = safeJsonParse(doc.content);
+    doc.template_fields = safeJsonParse(doc.template_fields);
     
     res.json({
       code: 200,
