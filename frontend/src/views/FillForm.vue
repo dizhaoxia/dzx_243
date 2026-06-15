@@ -261,7 +261,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getTemplateDetail } from '@/api/template'
 import { createDocument } from '@/api/document'
@@ -317,26 +317,24 @@ const applyClausesToContent = (baseContent) => {
     if (item.mode === 'append') {
       const signMarker = '本合同一式两份'
       const courtMarker = /此致\s*\n\s*[\u4e00-\u9fa5]+人民法院/
-      const dateMarker = /日期：\{\{signDate\}\}|日期：\{\{date\}\}/
+      const dateMarker = /日期：\{\{signDate\}\}|日期：\{\{date\}\}/g
 
       if (courtMarker.test(content)) {
         content = content.replace(
           /(此致\s*\n\s*[\u4e00-\u9fa5]+人民法院)/,
           `${clauseContent}\n\n$1`
         )
-      } else if (dateMarker.test(content)) {
+      } else {
         const matches = [...content.matchAll(dateMarker)]
         if (matches.length >= 1) {
           const lastMatch = matches[matches.length - 1]
           const insertPos = lastMatch.index
           content = content.slice(0, insertPos) + `\n\n${clauseContent}\n\n` + content.slice(insertPos)
+        } else if (content.includes(signMarker)) {
+          content = content.replace(signMarker, `${clauseContent}\n\n${signMarker}`)
         } else {
           content += `\n\n${clauseContent}`
         }
-      } else if (content.includes(signMarker)) {
-        content = content.replace(signMarker, `${clauseContent}\n\n${signMarker}`)
-      } else {
-        content += `\n\n${clauseContent}`
       }
     } else if (item.mode === 'replace') {
       const category = item.clause.category || ''
@@ -410,9 +408,15 @@ const initFormData = (fields) => {
   fields.forEach(field => {
     formData[field.name] = field.type === 'number' ? 0 : ''
     if (field.required) {
-      formRules[field.name] = [
-        { required: true, message: `请${field.type === 'select' ? '选择' : '输入'}${field.label}`, trigger: 'blur' }
-      ]
+      const rule = {
+        required: true,
+        message: `请${field.type === 'select' ? '选择' : '输入'}${field.label}`,
+        trigger: field.type === 'number' ? 'change' : 'blur'
+      }
+      if (field.type === 'number') {
+        rule.type = 'number'
+      }
+      formRules[field.name] = [rule]
     }
   })
 }
@@ -436,7 +440,13 @@ const nextStep = async () => {
       await formRef.value.validate()
       currentStep.value = 2
     } catch (error) {
-      ElMessage.warning('请填写完整必填项')
+      nextTick(() => {
+        const firstError = document.querySelector('.el-form-item.is-error')
+        if (firstError) {
+          firstError.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      })
+      ElMessage.warning('请完善表单必填项')
     }
   }
 }
@@ -482,7 +492,16 @@ const goToSignPage = async () => {
     try {
       await formRef.value.validate()
     } catch (e) {
-      ElMessage.warning('请先填写表单并完成必填项')
+      if (currentStep.value !== 1) {
+        currentStep.value = 1
+      }
+      nextTick(() => {
+        const firstError = document.querySelector('.el-form-item.is-error')
+        if (firstError) {
+          firstError.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      })
+      ElMessage.warning('请完善表单必填项后再签署')
       return
     }
     loading.value = true
