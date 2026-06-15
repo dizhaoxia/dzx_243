@@ -489,12 +489,13 @@ const generateDocument = async () => {
 
 const goToSignPage = async () => {
   if (!generatedDocId.value) {
+    if (currentStep.value !== 1) {
+      currentStep.value = 1
+      await nextTick()
+    }
     try {
       await formRef.value.validate()
     } catch (e) {
-      if (currentStep.value !== 1) {
-        currentStep.value = 1
-      }
       nextTick(() => {
         const firstError = document.querySelector('.el-form-item.is-error')
         if (firstError) {
