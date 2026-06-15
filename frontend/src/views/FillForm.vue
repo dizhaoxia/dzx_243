@@ -11,7 +11,7 @@
       </el-page-header>
 
       <el-row :gutter="24" v-loading="loading">
-        <el-col :xs="24" :md="14">
+        <el-col :xs="24" :md="16">
           <el-card class="form-card">
             <el-steps :active="currentStep - 1" finish-status="success" class="form-steps">
               <el-step title="填写信息" />
@@ -39,6 +39,7 @@
                         v-model="formData[field.name]"
                         :placeholder="`请输入${field.label}`"
                         clearable
+                        @input="handleFieldChange"
                       />
                     </el-form-item>
 
@@ -53,6 +54,7 @@
                         :rows="3"
                         :placeholder="`请输入${field.label}`"
                         resize="none"
+                        @input="handleFieldChange"
                       />
                     </el-form-item>
 
@@ -65,6 +67,7 @@
                         v-model="formData[field.name]"
                         :min="0"
                         style="width: 100%"
+                        @change="handleFieldChange"
                       />
                     </el-form-item>
 
@@ -79,6 +82,7 @@
                         placeholder="请选择日期"
                         value-format="YYYY-MM-DD"
                         style="width: 100%"
+                        @change="handleFieldChange"
                       />
                     </el-form-item>
 
@@ -92,6 +96,7 @@
                         :placeholder="`请选择${field.label}`"
                         style="width: 100%"
                         clearable
+                        @change="handleFieldChange"
                       >
                         <el-option
                           v-for="option in field.options"
@@ -104,20 +109,65 @@
                   </template>
                 </el-form>
 
+                <div class="applied-section" v-if="appliedClauses.length">
+                  <h4 class="section-title">
+                    <el-icon :size="16" color="#67c23a"><CircleCheckFilled /></el-icon>
+                    已应用条款（{{ appliedClauses.length }}）
+                  </h4>
+                  <el-scrollbar height="180px">
+                    <div class="applied-list">
+                      <div
+                        v-for="(item, idx) in appliedClauses"
+                        :key="idx"
+                        class="applied-item"
+                      >
+                        <div class="applied-info">
+                          <el-tag
+                            :type="item.mode === 'append' ? 'success' : 'warning'"
+                            size="small"
+                            effect="light"
+                          >
+                            {{ item.mode === 'append' ? '追加' : '替换' }}
+                          </el-tag>
+                          <span class="applied-title">{{ item.clause.title }}</span>
+                        </div>
+                        <el-button
+                          link
+                          type="danger"
+                          size="small"
+                          @click="removeAppliedClause(idx)"
+                        >
+                          <el-icon><Delete /></el-icon>
+                          移除
+                        </el-button>
+                      </div>
+                    </div>
+                  </el-scrollbar>
+                </div>
+
                 <div class="step-actions">
                   <el-button @click="goBack">取消</el-button>
-                  <el-button type="primary" @click="nextStep">下一步</el-button>
+                  <el-button type="primary" @click="nextStep">下一步预览</el-button>
                 </div>
               </template>
 
               <template v-else-if="currentStep === 2">
                 <div class="preview-section">
-                  <h3>内容预览</h3>
+                  <div class="preview-header">
+                    <h3>内容预览</h3>
+                    <el-tag type="info" effect="plain" size="small">
+                      已应用 {{ appliedClauses.length }} 条自定义条款
+                    </el-tag>
+                  </div>
                   <div class="markdown-content preview-content" v-html="previewContent"></div>
                 </div>
 
                 <div class="step-actions">
                   <el-button @click="prevStep">上一步</el-button>
+                  <el-button type="success" @click="goToSignPage">
+                    <el-icon><EditPen /></el-icon>
+                    前往签署
+                  </el-button>
                   <el-button type="primary" @click="generateDocument">生成文档</el-button>
                 </div>
               </template>
@@ -131,6 +181,10 @@
                   >
                     <template #extra>
                       <el-button type="primary" @click="viewDocument">查看文档</el-button>
+                      <el-button type="success" @click="goToSignPageFromResult">
+                        <el-icon><EditPen /></el-icon>
+                        签署文档
+                      </el-button>
                       <el-button @click="generatePdf">生成PDF</el-button>
                       <el-button @click="goToDocuments">我的文书</el-button>
                     </template>
@@ -141,8 +195,16 @@
           </el-card>
         </el-col>
 
-        <el-col :xs="24" :md="10">
-          <el-card class="side-card">
+        <el-col :xs="24" :md="8" v-if="currentStep <= 2">
+          <ClauseSidebar
+            v-if="template"
+            :template-type="template.type"
+            :template-title="template.title"
+            :form-data="formData"
+            @apply-clause="handleApplyClause"
+          />
+
+          <el-card class="side-card" v-if="currentStep === 1">
             <template #header>
               <div class="card-header">
                 <el-icon :size="18" color="#409eff"><InfoFilled /></el-icon>
@@ -159,7 +221,7 @@
             </div>
           </el-card>
 
-          <el-card class="side-card tip-card">
+          <el-card class="side-card tip-card" v-if="currentStep === 1">
             <template #header>
               <div class="card-header">
                 <el-icon :size="18" color="#e6a23c"><Warning /></el-icon>
@@ -169,8 +231,8 @@
             <ul class="tip-list">
               <li>请如实填写各项信息</li>
               <li>带 <span class="required">*</span> 的为必填项</li>
-              <li>填写完成后请仔细核对</li>
-              <li>生成的文档可在"我的文书"中查看</li>
+              <li>点击左侧推荐条款可追加或替换内容</li>
+              <li>签署文档请先保存后前往签署页</li>
             </ul>
           </el-card>
         </el-col>
@@ -206,6 +268,10 @@ import { createDocument } from '@/api/document'
 import { generatePdf as generatePdfApi, downloadPdf as downloadPdfApi } from '@/api/pdf'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { marked } from 'marked'
+import ClauseSidebar from '@/components/ClauseSidebar.vue'
+import {
+  CircleCheckFilled, Delete, EditPen, InfoFilled, Warning, Loading
+} from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -217,6 +283,7 @@ const totalSteps = 3
 const formRef = ref(null)
 const formData = reactive({})
 const formRules = reactive({})
+const appliedClauses = ref([])
 
 const generatedDocId = ref(null)
 const pdfDialogVisible = ref(false)
@@ -230,7 +297,7 @@ const filledFields = computed(() => {
   if (!template.value?.fields) return 0
   return template.value.fields.filter(field => {
     const value = formData[field.name]
-    return value !== undefined && value !== null && value !== ''
+    return value !== undefined && value !== null && value !== '' && value !== 0
   }).length
 })
 
@@ -239,14 +306,86 @@ const progressPercentage = computed(() => {
   return Math.round((filledFields.value / totalFields.value) * 100)
 })
 
+const applyClausesToContent = (baseContent) => {
+  let content = baseContent
+  const sectionRegex = /##\s*第[一二三四五六七八九十百]+条\s+([^\n]+)/g
+
+  appliedClauses.value.forEach(item => {
+    const clauseTitle = item.clause.title
+    const clauseContent = item.clause.content
+
+    if (item.mode === 'append') {
+      const signMarker = '本合同一式两份'
+      const courtMarker = /此致\s*\n\s*[\u4e00-\u9fa5]+人民法院/
+      const dateMarker = /日期：\{\{signDate\}\}|日期：\{\{date\}\}/
+
+      if (courtMarker.test(content)) {
+        content = content.replace(
+          /(此致\s*\n\s*[\u4e00-\u9fa5]+人民法院)/,
+          `${clauseContent}\n\n$1`
+        )
+      } else if (dateMarker.test(content)) {
+        const matches = [...content.matchAll(dateMarker)]
+        if (matches.length >= 1) {
+          const lastMatch = matches[matches.length - 1]
+          const insertPos = lastMatch.index
+          content = content.slice(0, insertPos) + `\n\n${clauseContent}\n\n` + content.slice(insertPos)
+        } else {
+          content += `\n\n${clauseContent}`
+        }
+      } else if (content.includes(signMarker)) {
+        content = content.replace(signMarker, `${clauseContent}\n\n${signMarker}`)
+      } else {
+        content += `\n\n${clauseContent}`
+      }
+    } else if (item.mode === 'replace') {
+      const category = item.clause.category || ''
+      const mapping = {
+        '违约责任': ['违约', '责任', '逾期'],
+        '争议解决': ['争议', '仲裁', '管辖', '诉讼'],
+        '保密': ['保密'],
+        '知识产权': ['知识', '著作', '专利', '商标'],
+        '不可抗力': ['不可抗力'],
+        '合同变更': ['变更', '解除', '终止'],
+        '送达': ['送达', '通知']
+      }
+      const keywords = mapping[category] || []
+      let replaced = false
+
+      if (keywords.length > 0) {
+        const sections = content.split(/(?=## )/)
+        for (let i = 0; i < sections.length; i++) {
+          const section = sections[i]
+          const match = section.match(/^##\s*第[一二三四五六七八九十百]+条\s+([^\n]+)/)
+          if (match) {
+            const header = match[1]
+            if (keywords.some(kw => header.includes(kw))) {
+              sections[i] = clauseContent + '\n'
+              replaced = true
+              break
+            }
+          }
+        }
+        if (replaced) content = sections.join('')
+      }
+
+      if (!replaced) {
+        content += `\n\n${clauseContent}`
+      }
+    }
+  })
+
+  return content
+}
+
 const previewContent = computed(() => {
   if (!template.value?.content) return ''
-  let content = template.value.content
+  let content = applyClausesToContent(template.value.content)
   Object.keys(formData).forEach(key => {
     const placeholder = `{{${key}}}`
     const value = formData[key] || ''
     const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
-    content = content.replace(regex, `**${value}**`)
+    content = content.replace(regex, `<strong>${value}</strong>`)
   })
   return marked.parse(content)
 })
@@ -254,7 +393,7 @@ const previewContent = computed(() => {
 const fetchTemplate = async () => {
   const templateId = route.params.templateId
   if (!templateId) return
-  
+
   loading.value = true
   try {
     const data = await getTemplateDetail(templateId)
@@ -278,6 +417,19 @@ const initFormData = (fields) => {
   })
 }
 
+const handleFieldChange = () => {
+  // 触发侧边栏重新计算推荐（通过watch formData）
+}
+
+const handleApplyClause = ({ clause, mode }) => {
+  appliedClauses.value.push({ clause, mode })
+}
+
+const removeAppliedClause = (idx) => {
+  appliedClauses.value.splice(idx, 1)
+  ElMessage.success('已移除条款')
+}
+
 const nextStep = async () => {
   if (currentStep.value === 1) {
     try {
@@ -298,9 +450,22 @@ const prevStep = () => {
 const generateDocument = async () => {
   loading.value = true
   try {
+    let finalContent = applyClausesToContent(template.value.content)
+    Object.keys(formData).forEach(key => {
+      const placeholder = `{{${key}}}`
+      const value = formData[key] || ''
+      const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+      finalContent = finalContent.replace(regex, value)
+    })
+
     const data = await createDocument({
       templateId: route.params.templateId,
-      formData: formData
+      formData: {
+        ...formData,
+        __applied_clauses__: appliedClauses.value
+      },
+      title: `${template.value.title} - ${new Date().toLocaleDateString()}`,
+      customContent: finalContent
     })
     generatedDocId.value = data.id
     currentStep.value = 3
@@ -309,6 +474,50 @@ const generateDocument = async () => {
     ElMessage.error('文档生成失败')
   } finally {
     loading.value = false
+  }
+}
+
+const goToSignPage = async () => {
+  if (!generatedDocId.value) {
+    try {
+      await formRef.value.validate()
+    } catch (e) {
+      ElMessage.warning('请先填写表单并完成必填项')
+      return
+    }
+    loading.value = true
+    try {
+      let finalContent = applyClausesToContent(template.value.content)
+      Object.keys(formData).forEach(key => {
+        const placeholder = `{{${key}}}`
+        const value = formData[key] || ''
+        const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+        finalContent = finalContent.replace(regex, value)
+      })
+
+      const data = await createDocument({
+        templateId: route.params.templateId,
+        formData: {
+          ...formData,
+          __applied_clauses__: appliedClauses.value
+        },
+        title: `${template.value.title} - ${new Date().toLocaleDateString()}`,
+        customContent: finalContent
+      })
+      generatedDocId.value = data.id
+    } catch (e) {
+      ElMessage.error('保存文档失败')
+      loading.value = false
+      return
+    }
+    loading.value = false
+  }
+  router.push(`/sign/${generatedDocId.value}`)
+}
+
+const goToSignPageFromResult = () => {
+  if (generatedDocId.value) {
+    router.push(`/sign/${generatedDocId.value}`)
   }
 }
 
@@ -321,7 +530,7 @@ const viewDocument = () => {
 const generatePdf = async () => {
   pdfDialogVisible.value = true
   pdfDataUrl.value = ''
-  
+
   try {
     const data = await generatePdfApi({
       templateId: route.params.templateId,
@@ -407,8 +616,58 @@ onMounted(() => {
 }
 
 .dynamic-form {
-  max-width: 600px;
+  max-width: 700px;
   margin: 0 auto;
+}
+
+.applied-section {
+  max-width: 700px;
+  margin: 28px auto 0;
+  padding: 16px 18px;
+  background: #f0f9eb;
+  border: 1px solid #e1f3d8;
+  border-radius: 8px;
+}
+
+.section-title {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #67c23a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.applied-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.applied-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+}
+
+.applied-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.applied-title {
+  font-size: 13px;
+  color: #303133;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .step-actions {
@@ -420,9 +679,16 @@ onMounted(() => {
   border-top: 1px solid #ebeef5;
 }
 
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
 .preview-section h3 {
   font-size: 16px;
-  margin-bottom: 16px;
+  margin: 0;
   color: #303133;
 }
 
@@ -430,7 +696,7 @@ onMounted(() => {
   background-color: #fafafa;
   padding: 24px;
   border-radius: 8px;
-  max-height: 400px;
+  max-height: 500px;
   overflow-y: auto;
 }
 

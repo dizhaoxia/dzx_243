@@ -1,10 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
+const path = require('path');
 
 const templateRoutes = require('./routes/templates');
 const documentRoutes = require('./routes/documents');
 const pdfRoutes = require('./routes/pdf');
+const clauseRoutes = require('./routes/clauses');
+const versionRoutes = require('./routes/versions');
 
 const app = express();
 const PORT = 3099;
@@ -14,8 +17,10 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 app.use(session({
   secret: 'legal-doc-generator-secret-key',
@@ -41,6 +46,8 @@ app.get('/api/health', (req, res) => {
 app.use('/api/templates', templateRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/pdf', pdfRoutes);
+app.use('/api/clauses', clauseRoutes);
+app.use('/api/versions', versionRoutes);
 
 app.use((err, req, res, next) => {
   console.error('服务器错误:', err);

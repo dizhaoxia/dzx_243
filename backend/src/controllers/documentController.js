@@ -116,7 +116,7 @@ const getDocumentDetail = async (req, res) => {
 
 const createDocument = async (req, res) => {
   try {
-    const { templateId, formData, title } = req.body;
+    const { templateId, formData, title, customContent } = req.body;
     const sessionId = req.sessionID;
     const userId = req.session.userId;
     
@@ -140,7 +140,7 @@ const createDocument = async (req, res) => {
     }
     
     const template = templateRows[0];
-    const content = generateDocumentContent(template.content, formData);
+    const content = customContent || generateDocumentContent(template.content, formData);
     
     const docTitle = title || `${template.title} - ${new Date().toLocaleDateString()}`;
     

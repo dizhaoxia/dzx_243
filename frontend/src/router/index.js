@@ -30,6 +30,18 @@ const routes = [
     name: 'DocumentDetail',
     component: () => import('@/views/DocumentDetail.vue'),
     meta: { title: '文书详情' }
+  },
+  {
+    path: '/clause-library',
+    name: 'ClauseLibrary',
+    component: () => import('@/views/ClauseLibrary.vue'),
+    meta: { title: '条款库管理' }
+  },
+  {
+    path: '/sign/:documentId',
+    name: 'SignPage',
+    component: () => import('@/views/SignPage.vue'),
+    meta: { title: '文书签署' }
   }
 ]
 

@@ -23,6 +23,10 @@
             <el-icon><Files /></el-icon>
             <span>我的文书</span>
           </el-menu-item>
+          <el-menu-item index="/clause-library">
+            <el-icon><CollectionTag /></el-icon>
+            <span>条款库</span>
+          </el-menu-item>
         </el-menu>
       </div>
     </el-header>
@@ -38,6 +42,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { Document, Collection, Files, CollectionTag } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const activeMenu = computed(() => route.path)
